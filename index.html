@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>미로 탈출 코딩 챌린지 · 삼성 드림캠퍼스</title>
+<style>
+  :root{
+    --navy:#1428A0;        /* 삼성 블루 */
+    --navy-d:#0b1a73;
+    --sky:#3aa0ff;
+    --bg:#eef3fb;
+    --card:#ffffff;
+    --ink:#1b2433;
+    --muted:#6b7689;
+    --wall:#2b3550;
+    --path:#f4f7ff;
+    --path2:#e7eefc;
+    --goal:#ffd23f;
+    --ok:#19b56a;
+    --bad:#ff5a5a;
+    --shadow:0 10px 30px rgba(20,40,160,.12);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:'Segoe UI','Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+    background:radial-gradient(1200px 600px at 10% -10%, #dbe6ff 0%, var(--bg) 55%);
+    color:var(--ink);
+    min-height:100vh;
+    -webkit-tap-highlight-color:transparent;
+  }
+  header.top{
+    background:linear-gradient(100deg,var(--navy),var(--navy-d));
+    color:#fff; padding:14px 20px; display:flex; align-items:center; gap:14px;
+    box-shadow:0 6px 20px rgba(11,26,115,.35);
+  }
+  header.top .logo{
+    font-weight:800; letter-spacing:.5px; font-size:18px;
+    background:rgba(255,255,255,.14); padding:6px 12px; border-radius:10px;
+  }
+  header.top h1{font-size:18px;margin:0;font-weight:700}
+  header.top .sub{margin-left:auto;font-size:13px;opacity:.85}
+
+  .wrap{max-width:1180px;margin:18px auto;padding:0 16px;
+    display:grid;grid-template-columns:minmax(380px,1.05fr) 1fr;gap:18px;align-items:start;}
+  @media (max-width:880px){.wrap{grid-template-columns:1fr}}
+
+  .card{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:18px;}
+
+  /* 레벨 바 */
+  .levelbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .levelbar .title{font-weight:800;font-size:17px}
+  .lv-pills{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+  .lv-pill{width:34px;height:34px;border-radius:10px;border:2px solid #d4ddf0;background:#fff;
+    font-weight:800;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .lv-pill.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .lv-pill.cleared{border-color:var(--ok);color:var(--ok)}
+  .lv-pill.cleared.active{background:var(--ok);color:#fff}
+
+  .mission{background:linear-gradient(90deg,#eef3ff,#f7faff);border:1px dashed #b9caf2;
+    border-radius:12px;padding:10px 14px;font-size:14px;color:#2a3a63;margin-bottom:14px;line-height:1.5}
+  .mission b{color:var(--navy)}
+
+  /* 보드 */
+  .board-wrap{display:flex;justify-content:center;margin:6px 0 4px}
+  .board{position:relative;border-radius:14px;overflow:hidden;background:var(--wall);
+    box-shadow:inset 0 0 0 4px var(--wall), 0 8px 24px rgba(20,40,160,.18)}
+  .cell{position:absolute;display:flex;align-items:center;justify-content:center;font-size:22px}
+  .cell.wall{background:var(--wall)}
+  .cell.path{background:var(--path);box-shadow:inset 0 0 0 1px #e3eaf8}
+  .cell.path.alt{background:var(--path2)}
+  .cell.goal{background:radial-gradient(circle, #fff3c4, #ffe27a)}
+  .player{position:absolute;display:flex;align-items:center;justify-content:center;
+    transition:left .28s ease,top .28s ease;z-index:5}
+  .robot{position:relative;width:78%;height:78%;border-radius:50%;
+    background:linear-gradient(160deg,#5aa0ff,#1f5fe0);box-shadow:0 4px 10px rgba(20,40,160,.4);
+    display:flex;align-items:center;justify-content:center;font-size:60%;}
+  .robot .pointer{position:absolute;top:-6%;left:50%;width:0;height:0;
+    transform-origin:50% 600%;
+    border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:11px solid var(--goal);
+    transition:transform .28s ease;}
+  .robot.crash{animation:shake .4s}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+
+  .status{min-height:24px;text-align:center;font-weight:700;margin-top:8px;font-size:15px}
+  .status.ok{color:var(--ok)} .status.bad{color:var(--bad)} .status.info{color:var(--navy)}
+
+  /* 팔레트 & 프로그램 */
+  .panel-title{font-weight:800;font-size:15px;margin:2px 0 10px;display:flex;align-items:center;gap:8px}
+  .palette{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+  .pbtn{display:flex;align-items:center;gap:8px;justify-content:center;border:none;cursor:pointer;
+    padding:14px 8px;border-radius:14px;font-size:15px;font-weight:800;color:#fff;
+    box-shadow:0 4px 0 rgba(0,0,0,.12);transition:transform .05s, filter .15s;user-select:none}
+  .pbtn:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.12)}
+  .pbtn .ic{font-size:20px}
+  .pf{background:linear-gradient(160deg,#34c77b,#19a05f)}
+  .pl{background:linear-gradient(160deg,#ff9f43,#f07d18)}
+  .pr{background:linear-gradient(160deg,#ff7aa2,#e8497a)}
+  .ploop{background:linear-gradient(160deg,#9b6bff,#6f3fe0)}
+
+  .target-hint{font-size:12.5px;color:var(--muted);margin:-6px 0 10px}
+  .target-hint b{color:var(--navy)}
+
+  .program{min-height:120px;border:2px dashed #cdd8ef;border-radius:14px;padding:10px;background:#fafcff;
+    display:flex;flex-direction:column;gap:8px}
+  .program.empty::before{content:'⬇ 위 블록을 눌러 명령을 추가하세요';color:#aab6cf;
+    font-size:14px;text-align:center;padding:24px 0;font-weight:700}
+  .tile{display:flex;align-items:center;gap:10px;background:#fff;border:2px solid #e3eaf8;border-radius:11px;
+    padding:9px 12px;font-weight:800;font-size:14.5px;position:relative;animation:pop .15s}
+  @keyframes pop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+  .tile .num{width:22px;height:22px;border-radius:50%;background:#eef2fb;color:var(--muted);
+    font-size:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .tile.running{border-color:var(--navy);box-shadow:0 0 0 3px rgba(20,40,160,.18);background:#eef3ff}
+  .tile.err{border-color:var(--bad);box-shadow:0 0 0 3px rgba(255,90,90,.18)}
+  .tile .del{margin-left:auto;border:none;background:#f1f3f8;color:#97a1b5;width:24px;height:24px;
+    border-radius:50%;cursor:pointer;font-weight:900;line-height:1}
+  .tile .del:hover{background:#ffe1e1;color:var(--bad)}
+  .tile.tf{border-left:6px solid #19a05f}
+  .tile.tl{border-left:6px solid #f07d18}
+  .tile.tr{border-left:6px solid #e8497a}
+
+  .loop{border:2px solid #cdb6ff;border-radius:13px;background:#f7f2ff;padding:8px;animation:pop .15s}
+  .loop.active{box-shadow:0 0 0 3px rgba(111,63,224,.25)}
+  .loop .lhead{display:flex;align-items:center;gap:8px;font-weight:800;color:#5a2fc0;cursor:pointer;padding:2px 4px}
+  .loop .times{display:flex;align-items:center;gap:6px;margin-left:auto}
+  .loop .times button{width:26px;height:26px;border-radius:8px;border:none;background:#6f3fe0;color:#fff;
+    font-weight:900;cursor:pointer;font-size:15px}
+  .loop .times .n{min-width:28px;text-align:center;font-size:16px;color:#5a2fc0}
+  .loop .ldel{margin-left:6px;border:none;background:#ece2ff;color:#9b86c8;width:24px;height:24px;border-radius:50%;cursor:pointer;font-weight:900}
+  .loop .lbody{margin-top:8px;padding:8px;border:2px dashed #d8c6ff;border-radius:10px;background:#fdfbff;
+    display:flex;flex-direction:column;gap:7px;min-height:46px}
+  .loop .lbody.empty::before{content:'반복할 명령을 여기에 넣어요';color:#bfa9ee;font-size:12.5px;text-align:center;padding:10px 0;font-weight:700}
+
+  /* 컨트롤 */
+  .controls{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .cbtn{flex:1;min-width:96px;border:none;cursor:pointer;padding:14px 8px;border-radius:14px;font-size:15px;font-weight:800;
+    box-shadow:0 4px 0 rgba(0,0,0,.12);transition:transform .05s}
+  .cbtn:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.12)}
+  .cbtn:disabled{opacity:.45;cursor:not-allowed}
+  .run{background:linear-gradient(160deg,#34c77b,#0f9152);color:#fff}
+  .step{background:#fff;color:var(--navy);border:2px solid #c5d2ee;box-shadow:0 4px 0 #dde6f7}
+  .reset{background:#fff;color:#7a8499;border:2px solid #d8dee9;box-shadow:0 4px 0 #e7ebf3}
+  .clear{background:#fff;color:#e8497a;border:2px solid #f6cfdc;box-shadow:0 4px 0 #f6dfe7}
+
+  .speedrow{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--muted);font-weight:700}
+  .speedrow .seg{display:flex;gap:4px;margin-left:auto}
+  .speedrow .seg button{border:2px solid #d4ddf0;background:#fff;border-radius:9px;padding:6px 10px;font-weight:800;color:var(--muted);cursor:pointer}
+  .speedrow .seg button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+
+  .concept{margin-top:14px;font-size:13px;color:#566179;background:#f3f6fc;border-radius:12px;padding:11px 14px;line-height:1.55}
+  .concept b{color:var(--navy)}
+
+  /* 승리 모달 */
+  .overlay{position:fixed;inset:0;background:rgba(13,22,60,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .overlay.show{display:flex}
+  .modal{background:#fff;border-radius:22px;padding:28px 26px;max-width:380px;width:100%;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.4);animation:pop .25s}
+  .modal h2{margin:6px 0 4px;font-size:24px;color:var(--navy)}
+  .modal .stars{font-size:44px;letter-spacing:6px;margin:8px 0}
+  .modal p{color:var(--muted);font-size:14px;margin:6px 0 18px;line-height:1.5}
+  .modal .mbtns{display:flex;gap:10px}
+  .modal .mbtns button{flex:1;border:none;cursor:pointer;padding:14px;border-radius:14px;font-weight:800;font-size:15px}
+  .modal .again{background:#eef2fb;color:#5a6680}
+  .modal .next{background:linear-gradient(160deg,#34c77b,#0f9152);color:#fff}
+
+  .confetti{position:fixed;top:-10px;font-size:20px;z-index:60;pointer-events:none;animation:fall linear forwards}
+  @keyframes fall{to{transform:translateY(105vh) rotate(540deg);opacity:.9}}
+
+  footer{text-align:center;color:#8b96ac;font-size:12.5px;padding:18px;}
+</style>
+</head>
+<body>
+<header class="top">
+  <span class="logo">SAMSUNG</span>
+  <h1>미로 탈출 코딩 챌린지</h1>
+  <span class="sub">삼성 드림캠퍼스 · 체험형 코딩 부스</span>
+</header>
+
+<div class="wrap">
+  <!-- 왼쪽: 미로 보드 -->
+  <section class="card">
+    <div class="levelbar">
+      <span class="title" id="lvTitle">레벨 1</span>
+      <div class="lv-pills" id="lvPills"></div>
+    </div>
+    <div class="mission" id="mission"></div>
+    <div class="board-wrap"><div class="board" id="board"></div></div>
+    <div class="status info" id="status">로봇을 ⭐ 별까지 이동시켜 주세요!</div>
+    <div class="concept" id="concept"></div>
+  </section>
+
+  <!-- 오른쪽: 명령 만들기 -->
+  <section class="card">
+    <div class="panel-title">🧩 명령 블록을 골라보세요</div>
+    <div class="palette">
+      <button class="pbtn pf" onclick="addCmd('forward')"><span class="ic">⬆️</span> 앞으로</button>
+      <button class="pbtn ploop" onclick="addCmd('loop')"><span class="ic">🔁</span> 반복하기</button>
+      <button class="pbtn pl" onclick="addCmd('left')"><span class="ic">↺</span> 왼쪽 돌기</button>
+      <button class="pbtn pr" onclick="addCmd('right')"><span class="ic">↻</span> 오른쪽 돌기</button>
+    </div>
+    <div class="target-hint" id="targetHint"></div>
+
+    <div class="panel-title">📜 나의 프로그램</div>
+    <div class="program empty" id="program"></div>
+
+    <div class="controls">
+      <button class="cbtn run" id="btnRun" onclick="run()">▶ 실행</button>
+      <button class="cbtn step" id="btnStep" onclick="manualStep()">⏭ 한 단계</button>
+      <button class="cbtn reset" onclick="resetExecution(true)">↺ 처음으로</button>
+      <button class="cbtn clear" onclick="clearProgram()">🗑 지우기</button>
+    </div>
+
+    <div class="speedrow">
+      속도
+      <div class="seg" id="speedSeg">
+        <button data-ms="640">느리게</button>
+        <button data-ms="380" class="on">보통</button>
+        <button data-ms="200">빠르게</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer>삼성 드림캠퍼스 코딩 부스 · 명령을 조립해 로봇을 별까지! 🤖➡️⭐</footer>
+
+<!-- 승리 모달 -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div style="font-size:46px">🎉</div>
+    <h2>미로 탈출 성공!</h2>
+    <div class="stars" id="winStars">⭐⭐⭐</div>
+    <p id="winMsg"></p>
+    <div class="mbtns">
+      <button class="again" onclick="closeModal();resetExecution(true)">다시 풀기</button>
+      <button class="next" id="btnNext" onclick="nextLevel()">다음 레벨 ▶</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   미로 데이터
+   기호:  # 벽 / . 길 / S 출발 / G 별(도착)
+   dir : 0=북(위) 1=동(오른쪽) 2=남(아래) 3=서(왼쪽)
+   ============================================================ */
+const LEVELS = [
+  {
+    name:'레벨 1 · 직진하기',
+    grid:['#######','#S...G#','#######'], dir:1,
+    mission:'<b>앞으로</b> 블록만으로 ⭐ 별까지 직진해 보세요!',
+    concept:'💡 <b>순차 실행</b> : 컴퓨터는 명령을 <b>위에서 아래로 순서대로</b> 실행해요.',
+    star3:4, star2:6
+  },
+  {
+    name:'레벨 2 · 모퉁이 돌기',
+    grid:['#####','#S..#','###.#','###G#','#####'], dir:1,
+    mission:'길이 꺾여 있어요. <b>오른쪽 돌기</b>로 방향을 바꿔 보세요.',
+    concept:'💡 <b>방향 전환</b> : 로봇은 \"보고 있는 방향\"으로만 전진해요. 돌기로 방향을 바꿔요.',
+    star3:5, star2:7
+  },
+  {
+    name:'레벨 3 · 두 번 꺾기',
+    grid:['#######','#S..###','###.###','###...#','#####.#','#####G#','#######'], dir:1,
+    mission:'왼쪽·오른쪽 돌기를 섞어서 S자 길을 통과해 별에 도착하세요!',
+    concept:'💡 <b>디버깅</b> : 벽에 부딪히면 어느 명령이 틀렸는지 찾아 고쳐 보세요. 그게 바로 코딩이에요!',
+    star3:11, star2:14
+  },
+  {
+    name:'레벨 4 · 반복문의 힘',
+    grid:['######','#S.###','##..##','###..#','####G#','######'], dir:1,
+    mission:'같은 동작이 반복돼요. <b>🔁 반복하기</b> 블록으로 짧고 똑똑하게 풀어 보세요!',
+    concept:'💡 <b>반복문(loop)</b> : 똑같은 명령을 여러 번 쓰지 않고 \"몇 번 반복\"으로 묶을 수 있어요.',
+    star3:6, star2:12
+  },
+  {
+    name:'레벨 5 · 긴 복도',
+    grid:['##########','#S.......#','########.#','########G#','##########'], dir:1,
+    mission:'복도가 아주 길어요! <b>🔁 반복하기</b>로 \"앞으로\"를 여러 번 묶어 보세요.',
+    concept:'💡 반복 횟수를 바꾸면 코드를 거의 안 늘리고도 더 멀리 갈 수 있어요. 효율적인 코드의 힘! 💪',
+    star3:6, star2:12
+  }
+];
+
+/* ============================================================ */
+let curLevel = 0;
+let program = [];          // 루트 명령 목록
+let activeLoopId = null;   // 명령을 넣을 반복블록(없으면 루트)
+let idc = 0;
+let robot = {r:0,c:0,dir:1};
+let grid = [], rows=0, cols=0, cell=56, startPos={r:0,c:0}, goalPos={r:0,c:0};
+let exec = null;           // {plan, ptr}
+let running=false, finished=false, speed=380;
+const cleared = new Set();
+
+/* ---------- 레벨 로딩 ---------- */
+function loadLevel(i){
+  curLevel=i;
+  const L=LEVELS[i];
+  grid=L.grid.map(r=>r.split(''));
+  rows=grid.length; cols=grid[0].length;
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    if(grid[r][c]==='S'){startPos={r,c};}
+    if(grid[r][c]==='G'){goalPos={r,c};}
+  }
+  document.getElementById('lvTitle').textContent=L.name;
+  document.getElementById('mission').innerHTML=L.mission;
+  document.getElementById('concept').innerHTML=L.concept;
+  program=[]; activeLoopId=null;
+  buildBoard();
+  resetExecution(true);
+  renderProgram();
+  renderPills();
+}
+
+function renderPills(){
+  const box=document.getElementById('lvPills'); box.innerHTML='';
+  LEVELS.forEach((L,i)=>{
+    const b=document.createElement('button');
+    b.className='lv-pill'+(i===curLevel?' active':'')+(cleared.has(i)?' cleared':'');
+    b.textContent=cleared.has(i)?'✓':(i+1);
+    b.title=L.name;
+    b.onclick=()=>loadLevel(i);
+    box.appendChild(b);
+  });
+}
+
+/* ---------- 보드 그리기 ---------- */
+function buildBoard(){
+  const board=document.getElementById('board');
+  cell=Math.floor(Math.min(420/cols, 360/rows, 60));
+  cell=Math.max(cell,30);
+  board.style.width=cols*cell+'px';
+  board.style.height=rows*cell+'px';
+  board.innerHTML='';
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const d=document.createElement('div');
+    const v=grid[r][c];
+    d.className='cell '+(v==='#'?'wall':(v==='G'?'path goal':'path'+((r+c)%2?' alt':'')));
+    d.style.left=c*cell+'px'; d.style.top=r*cell+'px';
+    d.style.width=cell+'px'; d.style.height=cell+'px';
+    if(v==='G') d.textContent='⭐';
+    board.appendChild(d);
+  }
+  const p=document.createElement('div');
+  p.className='player'; p.id='player';
+  p.style.width=cell+'px'; p.style.height=cell+'px';
+  p.innerHTML='<div class="robot" id="robot"><div class="pointer" id="pointer"></div>🤖</div>';
+  board.appendChild(p);
+}
+
+function drawRobot(){
+  const p=document.getElementById('player');
+  p.style.left=robot.c*cell+'px';
+  p.style.top=robot.r*cell+'px';
+  const deg={0:0,1:90,2:180,3:270}[robot.dir];
+  document.getElementById('pointer').style.transform=`translateX(-50%) rotate(${deg}deg)`;
+}
+
+/* ---------- 프로그램(명령 조립) ---------- */
+function findLoop(id){return program.find(x=>x.type==='loop'&&x.id===id);}
+
+function addCmd(type){
+  if(finished||running) return;
+  if(type==='loop'){
+    const loop={id:++idc,type:'loop',times:2,body:[]};
+    program.push(loop); activeLoopId=loop.id;
+  }else{
+    const cmd={id:++idc,type};
+    const loop=activeLoopId?findLoop(activeLoopId):null;
+    if(loop) loop.body.push(cmd); else program.push(cmd);
+  }
+  resetExecution(false);
+  renderProgram();
+}
+
+function delItem(id){
+  if(running) return;
+  program=program.filter(x=>x.id!==id);
+  program.forEach(x=>{if(x.type==='loop')x.body=x.body.filter(b=>b.id!==id);});
+  if(activeLoopId && !findLoop(activeLoopId)) activeLoopId=null;
+  resetExecution(false); renderProgram();
+}
+function changeTimes(id,d){
+  const l=findLoop(id); if(!l) return;
+  l.times=Math.max(1,Math.min(9,l.times+d));
+  resetExecution(false); renderProgram();
+}
+function selectLoop(id){ activeLoopId=(activeLoopId===id?null:id); renderProgram(); }
+function clearProgram(){ if(running)return; program=[]; activeLoopId=null; resetExecution(true); renderProgram(); }
+
+const META={
+  forward:{cls:'tf',ic:'⬆️',label:'앞으로'},
+  left:{cls:'tl',ic:'↺',label:'왼쪽 돌기'},
+  right:{cls:'tr',ic:'↻',label:'오른쪽 돌기'}
+};
+
+function tileEl(item,n){
+  const m=META[item.type];
+  const d=document.createElement('div');
+  d.className='tile '+m.cls; d.id='tile-'+item.id;
+  d.innerHTML=`<span class="num">${n}</span><span>${m.ic}</span><span>${m.label}</span>`;
+  const x=document.createElement('button'); x.className='del'; x.textContent='×';
+  x.onclick=(e)=>{e.stopPropagation();delItem(item.id);};
+  d.appendChild(x);
+  return d;
+}
+
+function renderProgram(){
+  const box=document.getElementById('program');
+  box.innerHTML='';
+  box.classList.toggle('empty',program.length===0);
+  let n=0;
+  program.forEach(item=>{
+    if(item.type==='loop'){
+      const wrap=document.createElement('div');
+      wrap.className='loop'+(activeLoopId===item.id?' active':'');
+      const head=document.createElement('div'); head.className='lhead';
+      head.onclick=()=>selectLoop(item.id);
+      head.innerHTML=`<span>🔁 반복하기</span>
+        <span class="times">
+          <button onclick="event.stopPropagation();changeTimes(${item.id},-1)">−</button>
+          <span class="n">${item.times}번</span>
+          <button onclick="event.stopPropagation();changeTimes(${item.id},1)">＋</button>
+          <button class="ldel" title="삭제" onclick="event.stopPropagation();delItem(${item.id})">×</button>
+        </span>`;
+      wrap.appendChild(head);
+      const body=document.createElement('div');
+      body.className='lbody'+(item.body.length?'':' empty');
+      item.body.forEach(b=>{ n++; body.appendChild(tileEl(b,n)); });
+      wrap.appendChild(body);
+      box.appendChild(wrap);
+    }else{
+      n++; box.appendChild(tileEl(item,n));
+    }
+  });
+  // 어디에 추가되는지 안내
+  const hint=document.getElementById('targetHint');
+  if(activeLoopId&&findLoop(activeLoopId)){
+    hint.innerHTML='지금 추가하는 명령은 <b>🔁 반복 블록 안</b>으로 들어가요. (반복 블록을 한 번 더 누르면 해제)';
+  }else{
+    hint.innerHTML='명령은 <b>프로그램 맨 아래</b>에 차례로 추가돼요. 🔁 반복 블록을 누르면 그 안에 넣을 수 있어요.';
+  }
+  updateButtons();
+}
+
+/* ---------- 실행 ---------- */
+function flatten(prog){
+  const res=[];
+  prog.forEach(item=>{
+    if(item.type==='loop'){
+      for(let i=0;i<item.times;i++)
+        item.body.forEach(b=>res.push({op:b.type,src:b.id}));
+    }else res.push({op:item.type,src:item.id});
+  });
+  return res;
+}
+
+function resetRobot(){ robot={r:startPos.r,c:startPos.c,dir:LEVELS[curLevel].dir}; drawRobot(); }
+
+function resetExecution(resetRobotToo){
+  running=false; finished=false; exec=null;
+  document.querySelectorAll('.tile').forEach(t=>t.classList.remove('running','err'));
+  const rb=document.getElementById('robot'); if(rb) rb.classList.remove('crash');
+  if(resetRobotToo!==false){ resetRobot(); setStatus('로봇을 ⭐ 별까지 이동시켜 주세요!','info'); }
+  updateButtons();
+}
+
+function setStatus(t,cls){const s=document.getElementById('status');s.textContent=t;s.className='status '+(cls||'info');}
+function updateButtons(){
+  document.getElementById('btnRun').disabled=running||finished;
+  document.getElementById('btnStep').disabled=running||finished;
+}
+function highlight(id){
+  document.querySelectorAll('.tile').forEach(t=>t.classList.remove('running'));
+  const t=document.getElementById('tile-'+id); if(t)t.classList.add('running');
+}
+
+const DELTA={0:[-1,0],1:[0,1],2:[1,0],3:[0,-1]};
+function apply(step){
+  if(step.op==='left'){ robot.dir=(robot.dir+3)%4; drawRobot(); return 'turn'; }
+  if(step.op==='right'){ robot.dir=(robot.dir+1)%4; drawRobot(); return 'turn'; }
+  // forward
+  const [dr,dc]=DELTA[robot.dir];
+  const nr=robot.r+dr, nc=robot.c+dc;
+  if(nr<0||nc<0||nr>=rows||nc>=cols||grid[nr][nc]==='#'){
+    // 충돌 → 디버깅 포인트
+    const t=document.getElementById('tile-'+step.src); if(t)t.classList.add('err');
+    const rb=document.getElementById('robot'); if(rb){rb.classList.add('crash');setTimeout(()=>rb.classList.remove('crash'),400);}
+    finished=true; running=false; updateButtons();
+    setStatus('🚧 벽에 부딪혔어요! 빨간 명령을 고쳐서 다시 해볼까요?','bad');
+    return 'crash';
+  }
+  robot.r=nr; robot.c=nc; drawRobot();
+  if(nr===goalPos.r&&nc===goalPos.c){ finished=true; running=false; updateButtons(); win(); return 'win'; }
+  return 'move';
+}
+
+function ensureExec(){
+  if(!exec){ resetRobot(); exec={plan:flatten(program),ptr:0}; finished=false;
+    document.querySelectorAll('.tile').forEach(t=>t.classList.remove('err')); }
+}
+
+function stepOnce(){
+  ensureExec();
+  if(finished) return 'done';
+  if(exec.ptr>=exec.plan.length){
+    finished=true; updateButtons();
+    setStatus('명령이 끝났지만 ⭐에 도착하지 못했어요. 명령을 더 추가해 볼까요?','bad');
+    return 'end';
+  }
+  const step=exec.plan[exec.ptr++];
+  highlight(step.src);
+  return apply(step);
+}
+
+function manualStep(){
+  if(running) return;
+  if(!program.length){ setStatus('먼저 명령 블록을 추가해 주세요!','bad'); return; }
+  setStatus('한 단계씩 실행 중… 로봇을 잘 지켜보세요 👀','info');
+  stepOnce();
+}
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function run(){
+  if(running||finished) { if(finished) resetExecution(true); }
+  if(!program.length){ setStatus('먼저 명령 블록을 추가해 주세요!','bad'); return; }
+  resetExecution(true);
+  running=true; updateButtons();
+  setStatus('실행 중… 🤖','info');
+  ensureExec();
+  while(running && !finished && exec.ptr<exec.plan.length){
+    const res=stepOnce();
+    if(res==='crash'||res==='win'||res==='end') break;
+    await sleep(speed);
+  }
+  if(running && !finished){ // plan 소진
+    finished=true; setStatus('명령이 끝났지만 ⭐에 도착하지 못했어요. 명령을 더 추가해 볼까요?','bad');
+  }
+  running=false; updateButtons();
+}
+
+/* ---------- 승리 ---------- */
+function countTiles(prog){
+  let s=0;
+  prog.forEach(i=>{ s+= (i.type==='loop')?(1+i.body.length):1; });
+  return s;
+}
+function win(){
+  const L=LEVELS[curLevel];
+  const used=countTiles(program);
+  let stars=1;
+  if(used<=L.star3) stars=3; else if(used<=L.star2) stars=2;
+  cleared.add(curLevel);
+  renderPills();
+  setStatus('🎉 미로 탈출 성공!','ok');
+  document.getElementById('winStars').textContent='⭐'.repeat(stars)+'☆'.repeat(3-stars);
+  let msg=`블록 ${used}개로 해결했어요!`;
+  if(stars===3) msg+=' 아주 효율적인 코드예요! 👏';
+  else if(stars===2) msg+=' 좋아요! 반복문을 쓰면 더 줄일 수 있을지도? 🤔';
+  else msg+=' 성공! 더 짧게 푸는 방법도 도전해 보세요.';
+  document.getElementById('winMsg').textContent=msg;
+  document.getElementById('btnNext').style.display=(curLevel<LEVELS.length-1)?'':'none';
+  setTimeout(()=>{document.getElementById('overlay').classList.add('show');confetti();},500);
+}
+function confetti(){
+  const emo=['🎉','⭐','🎊','✨','🟦','🟨'];
+  for(let i=0;i<26;i++){
+    const s=document.createElement('div'); s.className='confetti';
+    s.textContent=emo[i%emo.length];
+    s.style.left=Math.random()*100+'vw';
+    s.style.animationDuration=(1.6+Math.random()*1.6)+'s';
+    s.style.fontSize=(16+Math.random()*16)+'px';
+    document.body.appendChild(s);
+    setTimeout(()=>s.remove(),3400);
+  }
+}
+function closeModal(){document.getElementById('overlay').classList.remove('show');}
+function nextLevel(){ closeModal(); if(curLevel<LEVELS.length-1) loadLevel(curLevel+1); }
+
+/* ---------- 속도 ---------- */
+document.getElementById('speedSeg').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  speed=+b.dataset.ms;
+  [...e.currentTarget.children].forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+});
+
+/* ---------- 시작 ---------- */
+loadLevel(0);
+</script>
+</body>
+</html>
